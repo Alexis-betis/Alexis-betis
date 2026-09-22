@@ -1,0 +1,15 @@
+{
+  "name": "profilr-meeting-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Profilr Notetaker: Recall.ai Meeting Bots (ad-hoc meeting URLs + Google Calendar V2 per-event opt-in) with post-meeting Recall.ai transcription.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/index.js",
+    "smoke": "node --disable-warning=ExperimentalWarning src/index.js --smoke",
+    "test": "node --disable-warning=ExperimentalWarning --test 'test/**/*.test.js'"
+  }
+}

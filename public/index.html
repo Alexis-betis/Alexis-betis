@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profilr Notetaker</title>
+<style>
+  :root { --bg:#f7f7f8; --card:#fff; --ink:#1b1b1f; --muted:#6b6b76; --line:#e4e4e8; --accent:#3b5bdb; --ok:#2b8a3e; --bad:#c92a2a; --warn:#e67700; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141417; --card:#1d1d22; --ink:#ececf1; --muted:#9a9aa6; --line:#2e2e36; --accent:#748ffc; --ok:#51cf66; --bad:#ff6b6b; --warn:#ffa94d; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:960px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 12px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  form.row { display:flex; gap:8px; flex-wrap:wrap; }
+  input { flex:1 1 260px; padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); font:inherit; }
+  input[type=datetime-local] { flex:0 1 220px; }
+  button { padding:9px 14px; border:0; border-radius:7px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
+  button:disabled { opacity:.6; cursor:default; }
+  table { width:100%; border-collapse:collapse; } td, th { text-align:left; padding:8px 6px; border-top:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:13px; border-top:0; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); white-space:nowrap; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } .muted { color:var(--muted); font-size:13px; }
+  .url { word-break:break-all; font-size:13px; }
+  .msg { margin-top:8px; min-height:1.2em; }
+  .transcript p { margin:0 0 10px; } .transcript b { margin-right:6px; }
+  .scroll { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Profilr Notetaker</h1>
+  <p class="sub">Send a Recall.ai bot to a meeting, or choose calendar meetings to record. You get the transcript after the meeting ends.</p>
+
+  <section id="auth" hidden>
+    <h2>Sign in</h2>
+    <form class="row" id="authForm"><input id="token" type="password" placeholder="Access token" autocomplete="current-password" required><button>Continue</button></form>
+  </section>
+
+  <div id="appView" hidden>
+    <section>
+      <h2>Launch a bot now</h2>
+      <form class="row" id="launchForm">
+        <input id="meetingUrl" type="url" placeholder="https://meet.google.com/abc-defg-hij" required>
+        <input id="joinAt" type="datetime-local" title="Optional: schedule for later">
+        <button id="launchBtn">Send bot</button>
+      </form>
+      <div class="msg muted" id="launchMsg">Zoom, Google Meet, Microsoft Teams, Webex and GoTo Meeting links work. The bot joins as “Profilr Notetaker” and posts a recording notice in the meeting chat.</div>
+    </section>
+
+    <section>
+      <h2>Upcoming calendar meetings</h2>
+      <div class="row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <button class="ghost" id="syncBtn">Sync calendars</button><span class="muted" id="calInfo"></span>
+      </div>
+      <div class="scroll"><table><thead><tr><th>When</th><th>Meeting</th><th>Bot</th><th>Record</th></tr></thead><tbody id="events"></tbody></table></div>
+      <div class="muted">A bot is scheduled only for meetings you turn on here. Nothing is recorded by default.</div>
+    </section>
+
+    <section>
+      <h2>Meetings</h2>
+      <div class="scroll"><table><thead><tr><th>Join</th><th>Meeting</th><th>Bot status</th><th>Transcript</th></tr></thead><tbody id="meetings"></tbody></table></div>
+    </section>
+
+    <section id="detail" hidden><h2 id="detailTitle">Transcript</h2><div class="transcript" id="transcript"></div></section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let token = null;
+try { token = sessionStorage.getItem("profilr_token"); } catch {}
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmt = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle:"medium", timeStyle:"short" }) : "";
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { "content-type":"application/json", authorization:`Bearer ${token}`, ...(opts.headers||{}) } });
+  if (res.status === 401) { showAuth(); throw new Error("Unauthorized"); }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(body.error || body.meeting?.error || `HTTP ${res.status}`), { body });
+  return body;
+}
+
+const STATUS = {
+  scheduling:["Scheduling","muted"], scheduled:["Scheduled","ok"], create_unconfirmed:["Confirming…","warn"], failed:["Failed","bad"], cancelled:["Cancelled","muted"],
+  joining_call:["Joining","warn"], in_waiting_room:["Waiting room — admit the bot","warn"], in_call_not_recording:["In call (not recording)","warn"],
+  recording_permission_allowed:["Recording allowed","ok"], recording_permission_denied:["Recording denied","bad"], in_call_recording:["Recording","ok"],
+  call_ended:["Call ended","muted"], done:["Done","ok"], fatal:["Failed","bad"],
+};
+const TSTATUS = { requested:["Requested","warn"], processing:["Transcribing…","warn"], request_unconfirmed:["Confirming…","warn"], done:["Ready","ok"], failed:["Failed","bad"], no_recording:["No recording","bad"] };
+const pill = (map, s) => { if (!s) return '<span class="muted">—</span>'; const [t, c] = map[s] || [s, "muted"]; return `<span class="pill ${c}">${esc(t)}</span>`; };
+
+async function loadMeetings() {
+  const { meetings } = await api("/api/meetings");
+  $("meetings").innerHTML = meetings.map((m) => `<tr>
+    <td>${fmt(m.join_at)}<div class="muted">${m.source === "calendar" ? "Calendar" : "Manual"}</div></td>
+    <td>${m.title ? esc(m.title) + "<br>" : ""}<span class="url">${esc(m.meeting_url)}</span>${m.error ? `<div class="bad muted">${esc(m.error)}</div>` : ""}</td>
+    <td>${pill(STATUS, m.status)}${m.status_sub_code ? `<div class="muted">${esc(m.status_sub_code)}</div>` : ""}</td>
+    <td>${pill(TSTATUS, m.transcript_status)}${m.transcript_status === "done" ? ` <button class="ghost" data-open="${m.id}">View</button>` : ""}</td></tr>`).join("")
+    || '<tr><td colspan="4" class="muted">No meetings yet.</td></tr>';
+}
+
+async function openTranscript(id) {
+  const { meeting } = await api(`/api/meetings/${id}`);
+  $("detail").hidden = false;
+  $("detailTitle").textContent = `Transcript — ${meeting.title || meeting.meeting_url}`;
+  $("transcript").innerHTML = (meeting.transcript || []).map((s) =>
+    `<p><b>${esc(s.speaker)}</b><span class="muted">${s.start != null ? new Date(s.start * 1000).toISOString().slice(11, 19) : ""}</span><br>${esc(s.text)}</p>`).join("") || '<p class="muted">Empty transcript.</p>';
+  $("detail").scrollIntoView({ behavior: "smooth" });
+}
+
+async function loadEvents() {
+  const [{ calendars }, { events }] = await Promise.all([api("/api/calendars"), api("/api/calendar-events")]);
+  $("calInfo").textContent = calendars.length ? calendars.map((c) => `${c.platform_email || c.id} (${c.status})`).join(", ") : "No calendar connected yet.";
+  $("events").innerHTML = events.map((e) => {
+    const past = Date.parse(e.start_time) <= Date.now();
+    const disabled = !e.meeting_url || past;
+    return `<tr><td>${fmt(e.start_time)}</td>
+      <td>${esc(e.title || "(no title)")}<div class="url muted">${e.meeting_url ? esc(e.meeting_url) : "No meeting link"}</div></td>
+      <td>${pill(STATUS, e.bot_status)}</td>
+      <td><input type="checkbox" data-event="${e.id}" ${e.record ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="Record this meeting"></td></tr>`;
+  }).join("") || '<tr><td colspan="4" class="muted">No upcoming events.</td></tr>';
+}
+
+function showAuth() { $("auth").hidden = false; $("appView").hidden = true; }
+async function showApp() {
+  $("auth").hidden = true; $("appView").hidden = false;
+  await Promise.all([loadMeetings(), loadEvents()]).catch((e) => console.warn(e.message));
+}
+
+$("authForm").addEventListener("submit", (ev) => { ev.preventDefault(); token = $("token").value.trim(); try { sessionStorage.setItem("profilr_token", token); } catch {} showApp(); });
+
+$("launchForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = $("launchBtn"); btn.disabled = true; $("launchMsg").textContent = "Sending bot…"; $("launchMsg").className = "msg muted";
+  const joinLocal = $("joinAt").value;
+  try {
+    const { meeting } = await api("/api/meetings", { method: "POST", body: JSON.stringify({
+      meeting_url: $("meetingUrl").value, join_at: joinLocal ? new Date(joinLocal).toISOString() : undefined, request_key: crypto.randomUUID() }) });
+    $("launchMsg").textContent = meeting.status === "scheduled" ? "Bot scheduled. Its status updates below." : `Status: ${meeting.status}`;
+    $("launchMsg").className = "msg ok"; $("launchForm").reset();
+  } catch (e) { $("launchMsg").textContent = e.message; $("launchMsg").className = "msg bad"; }
+  finally { btn.disabled = false; loadMeetings(); }
+});
+
+$("syncBtn").addEventListener("click", async () => {
+  $("syncBtn").disabled = true;
+  try { await api("/api/calendars/sync", { method: "POST" }); await loadEvents(); } catch (e) { $("calInfo").textContent = e.message; }
+  finally { $("syncBtn").disabled = false; }
+});
+
+document.addEventListener("change", async (ev) => {
+  const id = ev.target.dataset?.event; if (!id) return;
+  ev.target.disabled = true;
+  try { await api(`/api/calendar-events/${id}/record`, { method: "POST", body: JSON.stringify({ enabled: ev.target.checked }) }); }
+  catch (e) { ev.target.checked = !ev.target.checked; alert(e.message); }
+  finally { await Promise.all([loadEvents(), loadMeetings()]).catch(() => {}); }
+});
+document.addEventListener("click", (ev) => { const id = ev.target.dataset?.open; if (id) openTranscript(id); });
+
+if (token) showApp(); else showAuth();
+setInterval(() => { if (!$("appView").hidden) { loadMeetings().catch(() => {}); } }, 5000);
+</script>
+</body>
+</html>
