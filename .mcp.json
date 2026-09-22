@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "recall-ai": {
+      "type": "http",
+      "url": "https://eu-central-1.recall.ai/mcp"
+    }
+  }
+}
