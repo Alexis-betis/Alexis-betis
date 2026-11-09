@@ -5,6 +5,8 @@ import { RecallApiError } from "./recall/client.js";
 import { describeRecallError, launchAdHocBot, UserInputError } from "./services/bots.js";
 import { setRecordOptIn, syncCalendarEvents } from "./services/calendar.js";
 import { enqueueWebhook } from "./services/webhooks.js";
+import { requeueAnalysis } from "./services/analysis.js";
+import { detectPlatform, normalizeMeetingType } from "./services/bots.js";
 
 const INDEX_HTML = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const MAX_BODY = 1024 * 1024;
@@ -43,10 +45,15 @@ function authorized(req, token) {
 }
 
 function meetingView(db, m, { withTranscript = false } = {}) {
+  const a = db.prepare("SELECT kind, status, result, model, error, export_status, updated_at FROM analyses WHERE meeting_id = ?").get(m.id);
   const view = {
     id: m.id,
     source: m.source,
     title: m.title,
+    meeting_type: m.meeting_type,
+    subject_ref: m.subject_ref,
+    subject_label: m.subject_label,
+    platform: detectPlatform(m.meeting_url),
     meeting_url: m.meeting_url,
     join_at: m.join_at,
     status: m.status,
@@ -57,9 +64,11 @@ function meetingView(db, m, { withTranscript = false } = {}) {
     created_at: m.created_at,
     updated_at: m.updated_at,
   };
+  view.analysis = a ? { kind: a.kind, status: a.status, error: a.error, export_status: a.export_status, model: a.model, updated_at: a.updated_at } : null;
   if (withTranscript) {
     const t = db.prepare("SELECT segments FROM transcripts WHERE meeting_id = ?").get(m.id);
     view.transcript = t ? JSON.parse(t.segments) : null;
+    if (view.analysis) view.analysis.result = a.result ? JSON.parse(a.result) : null;
   }
   return view;
 }
@@ -124,13 +133,33 @@ export function createApp(ctx) {
         }
         if (route === "POST /api/meetings") {
           const body = JSON.parse((await readRawBody(req)) || "{}");
-          const m = await launchAdHocBot(ctx, { meetingUrl: body.meeting_url, joinAt: body.join_at, requestKey: body.request_key });
+          const m = await launchAdHocBot(ctx, {
+            meetingUrl: body.meeting_url,
+            joinAt: body.join_at,
+            requestKey: body.request_key,
+            meetingType: body.meeting_type,
+            subjectRef: body.subject_ref,
+            subjectLabel: body.subject_label,
+          });
           return send(res, m.status === "failed" ? 502 : 201, { meeting: meetingView(db, m) });
         }
         const mm = url.pathname.match(/^\/api\/meetings\/([0-9a-f-]{36})$/);
         if (req.method === "GET" && mm) {
           const m = db.prepare("SELECT * FROM meetings WHERE id = ?").get(mm[1]);
           return m ? send(res, 200, { meeting: meetingView(db, m, { withTranscript: true }) }) : send(res, 404, { error: "not found" });
+        }
+
+        const am = url.pathname.match(/^\/api\/meetings\/([0-9a-f-]{36})\/analysis$/);
+        if (req.method === "POST" && am) {
+          // Re-run the analysis, optionally after correcting the meeting type.
+          const body = JSON.parse((await readRawBody(req)) || "{}");
+          const m = db.prepare("SELECT * FROM meetings WHERE id = ?").get(am[1]);
+          if (!m) return send(res, 404, { error: "not found" });
+          if (body.meeting_type) db.prepare("UPDATE meetings SET meeting_type = ? WHERE id = ?").run(normalizeMeetingType(body.meeting_type), m.id);
+          if (!db.prepare("SELECT 1 FROM transcripts WHERE meeting_id = ?").get(m.id)) return send(res, 409, { error: "no transcript yet" });
+          const queued = requeueAnalysis(db, m.id);
+          const fresh = db.prepare("SELECT * FROM meetings WHERE id = ?").get(m.id);
+          return send(res, 202, { queued, meeting: meetingView(db, fresh) });
         }
 
         if (route === "GET /api/calendars") {
@@ -156,7 +185,7 @@ export function createApp(ctx) {
         const em = url.pathname.match(/^\/api\/calendar-events\/([0-9a-f-]{36})\/record$/);
         if (req.method === "POST" && em) {
           const body = JSON.parse((await readRawBody(req)) || "{}");
-          const evt = await setRecordOptIn(ctx, em[1], Boolean(body.enabled));
+          const evt = await setRecordOptIn(ctx, em[1], Boolean(body.enabled), { meetingType: body.meeting_type, subjectLabel: body.subject_label });
           return evt ? send(res, 200, { event: { ...evt, record: Boolean(evt.record) } }) : send(res, 404, { error: "not found" });
         }
       }

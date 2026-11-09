@@ -101,7 +101,9 @@ test("launch input and Recall failures are reported to the user", async (t) => {
   const app = await serve(ctx);
   t.after(app.close);
 
-  assert.equal((await app.call("/api/meetings", { method: "POST", body: { meeting_url: "https://example.com/x" } })).status, 400);
+  assert.equal((await app.call("/api/meetings", { method: "POST", body: { meeting_url: "pas un lien" } })).status, 400);
+  assert.equal((await app.call("/api/meetings", { method: "POST", body: { meeting_url: "http://zoom.us/j/1" } })).status, 400);
+  assert.equal((await app.call("/api/meetings", { method: "POST", body: { meeting_url: "https://zoom.us/j/1", meeting_type: "party" } })).status, 400);
   assert.equal((await app.call("/api/meetings", { method: "POST", body: { meeting_url: "https://zoom.us/j/1", join_at: "2001-01-01T00:00:00Z" } })).status, 400);
   assert.equal((await app.call("/api/meetings", { auth: false })).status, 401);
   assert.equal(fake.state.requests.length, 0);

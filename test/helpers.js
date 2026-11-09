@@ -9,7 +9,7 @@ import { signForTest } from "../src/recall/verify.js";
 export const SECRET = `whsec_${crypto.randomBytes(24).toString("base64")}`;
 export const TOKEN = "test-access-token-123456";
 
-export function setup() {
+export function setup({ analyzer = null, env = {} } = {}) {
   const fake = createFakeRecall();
   const config = loadConfig({
     RECALL_REGION: "eu-central-1",
@@ -18,9 +18,10 @@ export function setup() {
     PUBLIC_API_BASE_URL: "https://notetaker.profilr.example",
     APP_ACCESS_TOKEN: TOKEN,
     DATABASE_PATH: ":memory:",
+    ...env,
   });
   const logs = [];
-  const ctx = buildContext(config, { fetch: fake.fetch, sleep: async () => {} });
+  const ctx = buildContext(config, { fetch: fake.fetch, sleep: async () => {}, analyzer });
   ctx.log = (event, fields) => logs.push({ event, ...fields });
   ctx.recall.log = ctx.log;
   return { ctx, fake, config, logs };

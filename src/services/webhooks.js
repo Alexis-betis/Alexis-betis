@@ -2,6 +2,7 @@ import { nowIso, tx } from "../db.js";
 import { RecallAmbiguousError, RecallApiError } from "../recall/client.js";
 import { describeRecallError } from "./bots.js";
 import { syncCalendarEvents, upsertCalendar } from "./calendar.js";
+import { drainAnalyses, queueAnalysis } from "./analysis.js";
 
 /** Durable enqueue; duplicate deliveries (same webhook-id) are ignored. */
 export function enqueueWebhook(db, webhookId, eventType, rawBody) {
@@ -129,6 +130,7 @@ export async function processWebhook(ctx, payload) {
            ON CONFLICT(meeting_id) DO UPDATE SET transcript_id = excluded.transcript_id, segments = excluded.segments`,
         ).run(m.id, transcriptId, JSON.stringify(segments), nowIso());
         setMeeting(db, m.id, { transcript_id: transcriptId, transcript_status: "done", recording_id: data.recording?.id ?? m.recording_id, error: null });
+        queueAnalysis(db, m.id);
       }
     });
     log("transcript.stored", { meetings: rows.length, segments: segments.length });
@@ -171,17 +173,23 @@ export async function drainInbox(ctx, { limit = 20 } = {}) {
   return due.length;
 }
 
-export function startWorker(ctx, { intervalMs = 1000 } = {}) {
+function loop(fn, intervalMs) {
   let running = false;
   const timer = setInterval(async () => {
     if (running) return;
     running = true;
     try {
-      await drainInbox(ctx);
+      await fn();
     } finally {
       running = false;
     }
   }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);
+}
+
+/** Webhook inbox and LLM analyses run on separate loops so a long analysis never delays webhooks. */
+export function startWorker(ctx, { intervalMs = 1000 } = {}) {
+  const stops = [loop(() => drainInbox(ctx), intervalMs), loop(() => drainAnalyses(ctx), intervalMs * 5)];
+  return () => stops.forEach((stop) => stop());
 }

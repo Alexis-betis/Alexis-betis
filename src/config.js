@@ -59,6 +59,13 @@ export function loadConfig(env) {
     throw new ConfigError("RECALL_CALENDAR_REGIONAL_CALLBACK_URI must belong to RECALL_REGION");
   }
 
+  const exportUrl = env.PROFILR_EXPORT_WEBHOOK_URL?.trim() || null;
+  const exportSecret = env.PROFILR_EXPORT_SECRET?.trim() || null;
+  if (Boolean(exportUrl) !== Boolean(exportSecret)) {
+    throw new ConfigError("Set both PROFILR_EXPORT_WEBHOOK_URL and PROFILR_EXPORT_SECRET, or neither");
+  }
+  if (exportUrl && new URL(exportUrl).protocol !== "https:") throw new ConfigError("PROFILR_EXPORT_WEBHOOK_URL must be https");
+
   return Object.freeze({
     recall: Object.freeze({
       region,
@@ -72,5 +79,8 @@ export function loadConfig(env) {
     port: Number(env.PORT || 3000),
     databasePath: env.DATABASE_PATH || "./data/profilr-meetings.sqlite",
     botName: env.BOT_NAME || "Profilr Notetaker",
+    // Optional: without it transcripts are still stored, analyses wait as "pending".
+    anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || null,
+    profilrExport: exportUrl ? Object.freeze({ url: exportUrl, secret: exportSecret }) : null,
   });
 }

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { nowIso } from "../db.js";
-import { buildBotConfig, describeRecallError } from "./bots.js";
+import { buildBotConfig, describeRecallError, normalizeMeetingType } from "./bots.js";
 
 // Opt-in rule (confirmed with the product owner): nothing on a connected calendar
 // is recorded unless a user explicitly turns "Record" on for that event. An event
@@ -50,9 +50,16 @@ export async function syncCalendarEvents(ctx, calendarId, { updatedAtGte } = {})
   return { events: events.length, botChanges: changed };
 }
 
-export async function setRecordOptIn(ctx, eventId, enabled) {
-  const res = ctx.db.prepare("UPDATE calendar_events SET record = ?, updated_at = ? WHERE id = ?").run(enabled ? 1 : 0, nowIso(), eventId);
-  if (res.changes === 0) return null;
+export async function setRecordOptIn(ctx, eventId, enabled, { meetingType, subjectLabel } = {}) {
+  const current = ctx.db.prepare("SELECT meeting_type, subject_label FROM calendar_events WHERE id = ?").get(eventId);
+  if (!current) return null;
+  const type = meetingType ? normalizeMeetingType(meetingType) : current.meeting_type;
+  const label = subjectLabel === undefined ? current.subject_label : String(subjectLabel ?? "").trim().slice(0, 200) || null;
+  ctx.db
+    .prepare("UPDATE calendar_events SET record = ?, meeting_type = ?, subject_label = ?, updated_at = ? WHERE id = ?")
+    .run(enabled ? 1 : 0, type, label, nowIso(), eventId);
+  // Keep an already-created meeting row in step, so the right analysis runs after the call.
+  ctx.db.prepare("UPDATE meetings SET meeting_type = ?, subject_label = ?, updated_at = ? WHERE calendar_event_id = ?").run(type, label, nowIso(), eventId);
   await reconcileEvent(ctx, eventId);
   return ctx.db.prepare("SELECT * FROM calendar_events WHERE id = ?").get(eventId);
 }
@@ -74,9 +81,9 @@ export async function reconcileEvent({ db, recall, config, log }, eventId, now =
     const meetingId = meeting?.id ?? crypto.randomUUID();
     if (!meeting) {
       db.prepare(
-        `INSERT INTO meetings (id, source, calendar_event_id, title, meeting_url, join_at, status, created_at, updated_at)
-         VALUES (?, 'calendar', ?, ?, ?, ?, 'scheduling', ?, ?)`,
-      ).run(meetingId, eventId, evt.title, evt.meeting_url, evt.start_time, ts, ts);
+        `INSERT INTO meetings (id, source, calendar_event_id, title, meeting_type, subject_label, meeting_url, join_at, status, created_at, updated_at)
+         VALUES (?, 'calendar', ?, ?, ?, ?, ?, ?, 'scheduling', ?, ?)`,
+      ).run(meetingId, eventId, evt.title, evt.meeting_type, evt.subject_label, evt.meeting_url, evt.start_time, ts, ts);
     } else {
       db.prepare("UPDATE meetings SET title = ?, meeting_url = ?, join_at = ?, status = 'scheduling', error = NULL, updated_at = ? WHERE id = ?").run(
         evt.title, evt.meeting_url, evt.start_time, ts, meetingId,

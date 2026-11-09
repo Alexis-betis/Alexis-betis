@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS meetings (
   source TEXT NOT NULL CHECK (source IN ('adhoc', 'calendar')),
   calendar_event_id TEXT UNIQUE,
   title TEXT,
+  meeting_type TEXT NOT NULL DEFAULT 'candidate_interview',
+  subject_ref TEXT,
+  subject_label TEXT,
   meeting_url TEXT NOT NULL,
   join_at TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -64,16 +67,46 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   meeting_url TEXT,
   is_deleted INTEGER NOT NULL DEFAULT 0,
   record INTEGER NOT NULL DEFAULT 0,
+  meeting_type TEXT NOT NULL DEFAULT 'candidate_interview',
+  subject_label TEXT,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS calendar_events_calendar ON calendar_events(calendar_id, start_time);
+
+CREATE TABLE IF NOT EXISTS analyses (
+  meeting_id TEXT PRIMARY KEY REFERENCES meetings(id),
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  result TEXT,
+  model TEXT,
+  error TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT NOT NULL,
+  export_status TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS analyses_pending ON analyses(status, next_attempt_at);
 `;
+
+// Columns added after the first schema; ALTER keeps existing databases working.
+const ADDED_COLUMNS = [
+  ["meetings", "meeting_type", "TEXT NOT NULL DEFAULT 'candidate_interview'"],
+  ["meetings", "subject_ref", "TEXT"],
+  ["meetings", "subject_label", "TEXT"],
+  ["calendar_events", "meeting_type", "TEXT NOT NULL DEFAULT 'candidate_interview'"],
+  ["calendar_events", "subject_label", "TEXT"],
+];
 
 export function openDatabase(file) {
   if (file !== ":memory:") fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
   db.exec(SCHEMA);
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    const has = db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column);
+    if (!has) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
   return db;
 }
 

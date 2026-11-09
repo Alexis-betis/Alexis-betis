@@ -4,6 +4,7 @@ import { openDatabase } from "./db.js";
 import { RecallClient } from "./recall/client.js";
 import { createApp } from "./app.js";
 import { startWorker } from "./services/webhooks.js";
+import { createClaudeAnalyzer } from "./llm/claude.js";
 
 /** Structured logs: event name + non-secret fields only (never bodies, headers or keys). */
 export function log(event, fields = {}) {
@@ -11,10 +12,11 @@ export function log(event, fields = {}) {
 }
 
 /** Wire the production object graph from configuration. */
-export function buildContext(config, { fetch = globalThis.fetch, sleep } = {}) {
+export function buildContext(config, { fetch = globalThis.fetch, sleep, analyzer } = {}) {
   const db = openDatabase(config.databasePath);
   const recall = new RecallClient({ baseUrl: config.recall.baseUrl, apiKey: config.recall.apiKey, fetch, sleep, log });
-  return { db, recall, config, log };
+  const llm = analyzer !== undefined ? analyzer : config.anthropicApiKey ? createClaudeAnalyzer({ apiKey: config.anthropicApiKey }) : null;
+  return { db, recall, config, log, fetch, analyzer: llm };
 }
 
 export function startServer(ctx) {
@@ -42,7 +44,13 @@ async function main() {
   const ctx = buildContext(config);
   const server = startServer(ctx);
   server.listen(config.port, "0.0.0.0", () =>
-    log("server.started", { port: config.port, region: config.recall.region, webhook_url: `${config.publicBaseUrl}/webhooks/recall` }),
+    log("server.started", {
+      port: config.port,
+      region: config.recall.region,
+      webhook_url: `${config.publicBaseUrl}/webhooks/recall`,
+      analysis: ctx.analyzer ? "enabled" : "disabled (ANTHROPIC_API_KEY not set)",
+      profilr_export: config.profilrExport ? "enabled" : "disabled",
+    }),
   );
   const shutdown = () => server.close(() => process.exit(0));
   process.on("SIGTERM", shutdown);

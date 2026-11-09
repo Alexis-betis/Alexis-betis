@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profilr Notetaker</title>
+<link rel="icon" href="data:,">
 <style>
   :root { --bg:#f7f7f8; --card:#fff; --ink:#1b1b1f; --muted:#6b6b76; --line:#e4e4e8; --accent:#3b5bdb; --ok:#2b8a3e; --bad:#c92a2a; --warn:#e67700; }
   @media (prefers-color-scheme: dark) { :root { --bg:#141417; --card:#1d1d22; --ink:#ececf1; --muted:#9a9aa6; --line:#2e2e36; --accent:#748ffc; --ok:#51cf66; --bad:#ff6b6b; --warn:#ffa94d; } }
@@ -16,6 +17,9 @@
   form.row { display:flex; gap:8px; flex-wrap:wrap; }
   input { flex:1 1 260px; padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); font:inherit; }
   input[type=datetime-local] { flex:0 1 220px; }
+  select { padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); font:inherit; }
+  .analysis h3 { font-size:14px; margin:14px 0 6px; } .analysis ul { margin:0 0 8px; padding-left:18px; } .analysis q { color:var(--muted); }
+  .kv { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; font-size:14px; } .kv dt { color:var(--muted); } .kv dd { margin:0; }
   button { padding:9px 14px; border:0; border-radius:7px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
   button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
   button:disabled { opacity:.6; cursor:default; }
@@ -32,7 +36,7 @@
 <body>
 <main>
   <h1>Profilr Notetaker</h1>
-  <p class="sub">Send a Recall.ai bot to a meeting, or choose calendar meetings to record. You get the transcript after the meeting ends.</p>
+  <p class="sub">Send a Recall.ai bot to a meeting, or choose calendar meetings to record. After the meeting you get the transcript, plus interview notes or a job brief.</p>
 
   <section id="auth" hidden>
     <h2>Sign in</h2>
@@ -45,6 +49,13 @@
       <form class="row" id="launchForm">
         <input id="meetingUrl" type="url" placeholder="https://meet.google.com/abc-defg-hij" required>
         <input id="joinAt" type="datetime-local" title="Optional: schedule for later">
+        <select id="meetingType" title="What should happen after the meeting">
+          <option value="candidate_interview">Candidate interview → notes</option>
+          <option value="client_intake">Client intake call → job brief</option>
+          <option value="other">Other → transcript only</option>
+        </select>
+        <input id="subjectLabel" placeholder="Candidate or role (optional)" maxlength="200">
+        <input id="subjectRef" placeholder="Profilr ID (optional)" maxlength="200" style="flex:0 1 160px">
         <button id="launchBtn">Send bot</button>
       </form>
       <div class="msg muted" id="launchMsg">Zoom, Google Meet, Microsoft Teams, Webex and GoTo Meeting links work. The bot joins as “Profilr Notetaker” and posts a recording notice in the meeting chat.</div>
@@ -55,16 +66,21 @@
       <div class="row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
         <button class="ghost" id="syncBtn">Sync calendars</button><span class="muted" id="calInfo"></span>
       </div>
-      <div class="scroll"><table><thead><tr><th>When</th><th>Meeting</th><th>Bot</th><th>Record</th></tr></thead><tbody id="events"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>When</th><th>Meeting</th><th>Bot</th><th>Type</th><th>Record</th></tr></thead><tbody id="events"></tbody></table></div>
       <div class="muted">A bot is scheduled only for meetings you turn on here. Nothing is recorded by default.</div>
     </section>
 
     <section>
       <h2>Meetings</h2>
-      <div class="scroll"><table><thead><tr><th>Join</th><th>Meeting</th><th>Bot status</th><th>Transcript</th></tr></thead><tbody id="meetings"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Join</th><th>Meeting</th><th>Bot status</th><th>Transcript</th><th>Analysis</th></tr></thead><tbody id="meetings"></tbody></table></div>
     </section>
 
-    <section id="detail" hidden><h2 id="detailTitle">Transcript</h2><div class="transcript" id="transcript"></div></section>
+    <section id="detail" hidden>
+      <h2 id="detailTitle">Meeting</h2>
+      <div class="analysis" id="analysis"></div>
+      <h3>Transcript</h3>
+      <div class="transcript" id="transcript"></div>
+    </section>
   </div>
 </main>
 <script>
@@ -89,22 +105,48 @@ const STATUS = {
   call_ended:["Call ended","muted"], done:["Done","ok"], fatal:["Failed","bad"],
 };
 const TSTATUS = { requested:["Requested","warn"], processing:["Transcribing…","warn"], request_unconfirmed:["Confirming…","warn"], done:["Ready","ok"], failed:["Failed","bad"], no_recording:["No recording","bad"] };
+const TYPES = { candidate_interview:"Interview", client_intake:"Client intake", other:"Other" };
+const ASTATUS = { pending:["Queued","warn"], running:["Analysing…","warn"], done:["Ready","ok"], failed:["Failed","bad"], skipped:["Skipped","muted"] };
 const pill = (map, s) => { if (!s) return '<span class="muted">—</span>'; const [t, c] = map[s] || [s, "muted"]; return `<span class="pill ${c}">${esc(t)}</span>`; };
 
 async function loadMeetings() {
   const { meetings } = await api("/api/meetings");
   $("meetings").innerHTML = meetings.map((m) => `<tr>
-    <td>${fmt(m.join_at)}<div class="muted">${m.source === "calendar" ? "Calendar" : "Manual"}</div></td>
-    <td>${m.title ? esc(m.title) + "<br>" : ""}<span class="url">${esc(m.meeting_url)}</span>${m.error ? `<div class="bad muted">${esc(m.error)}</div>` : ""}</td>
+    <td>${fmt(m.join_at)}<div class="muted">${m.source === "calendar" ? "Calendar" : "Manual"} · ${esc(TYPES[m.meeting_type] || m.meeting_type)}</div></td>
+    <td>${m.title ? esc(m.title) + "<br>" : ""}${m.subject_label ? `<b>${esc(m.subject_label)}</b><br>` : ""}<span class="url">${esc(m.meeting_url)}</span>${m.error ? `<div class="bad muted">${esc(m.error)}</div>` : ""}</td>
     <td>${pill(STATUS, m.status)}${m.status_sub_code ? `<div class="muted">${esc(m.status_sub_code)}</div>` : ""}</td>
-    <td>${pill(TSTATUS, m.transcript_status)}${m.transcript_status === "done" ? ` <button class="ghost" data-open="${m.id}">View</button>` : ""}</td></tr>`).join("")
-    || '<tr><td colspan="4" class="muted">No meetings yet.</td></tr>';
+    <td>${pill(TSTATUS, m.transcript_status)}${m.transcript_status === "done" ? ` <button class="ghost" data-open="${m.id}">View</button>` : ""}</td>
+    <td>${m.analysis ? pill(ASTATUS, m.analysis.status) + (m.analysis.export_status === "sent" ? '<div class="muted">sent to Profilr</div>' : m.analysis.export_status === "failed" ? '<div class="bad muted">export failed</div>' : "") : '<span class="muted">—</span>'}</td></tr>`).join("")
+    || '<tr><td colspan="5" class="muted">No meetings yet.</td></tr>';
+}
+
+const list = (items) => items?.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : '<p class="muted">—</p>';
+const kv = (pairs) => `<dl class="kv">${pairs.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+const evid = (items) => items?.length ? `<ul>${items.map((e) => `<li>${esc(e.point)}${e.quote ? ` <q>${esc(e.quote)}</q>` : ""}${e.timestamp ? ` <span class="muted">${esc(e.timestamp)}</span>` : ""}</li>`).join("")}</ul>` : '<p class="muted">—</p>';
+
+function renderAnalysis(a) {
+  if (!a) return "";
+  if (a.status !== "done" || !a.result) return `<p>${pill(ASTATUS, a.status)} ${a.error ? `<span class="bad muted">${esc(a.error)}</span>` : ""}</p>`;
+  const r = a.result;
+  if (a.kind === "interview_notes") return `<h3>Interview notes</h3><p>${esc(r.summary)}</p>
+    ${kv([["Candidate", r.candidate_name], ["Current role", r.current_role], ["Current salary", r.salary_current], ["Expectations", r.salary_expectations], ["Availability", r.availability], ["Location / remote", r.location_and_remote], ["Other processes", r.other_processes]])}
+    <h3>Strengths</h3>${evid(r.strengths)}<h3>Concerns</h3>${evid(r.concerns)}
+    <h3>Skills</h3>${list(r.skills.map((s) => `${s.skill} (${s.evidence.replace("_", " ")})`))}
+    <h3>Motivations</h3>${list(r.motivations)}<h3>Next steps</h3>${list(r.next_steps)}<h3>Open questions</h3>${list(r.open_questions)}`;
+  return `<h3>Job brief — ${esc(r.job_title)}</h3><p>${esc(r.summary)}</p>
+    ${kv([["Company", r.company_name], ["Seniority", r.seniority], ["Location", r.location], ["Remote", r.remote_policy], ["Contract", r.contract_type], ["Salary", r.salary_range], ["Timeline", r.timeline], ["Team", r.team_context]])}
+    <h3>Responsibilities</h3>${list(r.responsibilities)}<h3>Must-have</h3>${list(r.must_have_skills)}<h3>Nice-to-have</h3>${list(r.nice_to_have_skills)}
+    <h3>Dealbreakers</h3>${list(r.dealbreakers)}<h3>Hiring process</h3>${list(r.hiring_process)}<h3>Open questions</h3>${list(r.open_questions)}
+    <h3>Search keywords</h3>${list([...r.search_keywords.job_titles, ...r.search_keywords.skills, ...r.search_keywords.target_companies])}`;
 }
 
 async function openTranscript(id) {
   const { meeting } = await api(`/api/meetings/${id}`);
   $("detail").hidden = false;
-  $("detailTitle").textContent = `Transcript — ${meeting.title || meeting.meeting_url}`;
+  $("detailTitle").textContent = meeting.subject_label || meeting.title || meeting.meeting_url;
+  $("analysis").innerHTML = renderAnalysis(meeting.analysis) +
+    (meeting.transcript ? `<p><select id="rerunType">${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${v === meeting.meeting_type ? "selected" : ""}>${l}</option>`).join("")}</select>
+     <button class="ghost" data-rerun="${meeting.id}">Re-run analysis</button></p>` : "");
   $("transcript").innerHTML = (meeting.transcript || []).map((s) =>
     `<p><b>${esc(s.speaker)}</b><span class="muted">${s.start != null ? new Date(s.start * 1000).toISOString().slice(11, 19) : ""}</span><br>${esc(s.text)}</p>`).join("") || '<p class="muted">Empty transcript.</p>';
   $("detail").scrollIntoView({ behavior: "smooth" });
@@ -119,8 +161,9 @@ async function loadEvents() {
     return `<tr><td>${fmt(e.start_time)}</td>
       <td>${esc(e.title || "(no title)")}<div class="url muted">${e.meeting_url ? esc(e.meeting_url) : "No meeting link"}</div></td>
       <td>${pill(STATUS, e.bot_status)}</td>
+      <td><select data-type-for="${e.id}" ${disabled ? "disabled" : ""}>${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${v === e.meeting_type ? "selected" : ""}>${l}</option>`).join("")}</select></td>
       <td><input type="checkbox" data-event="${e.id}" ${e.record ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="Record this meeting"></td></tr>`;
-  }).join("") || '<tr><td colspan="4" class="muted">No upcoming events.</td></tr>';
+  }).join("") || '<tr><td colspan="5" class="muted">No upcoming events.</td></tr>';
 }
 
 function showAuth() { $("auth").hidden = false; $("appView").hidden = true; }
@@ -137,7 +180,8 @@ $("launchForm").addEventListener("submit", async (ev) => {
   const joinLocal = $("joinAt").value;
   try {
     const { meeting } = await api("/api/meetings", { method: "POST", body: JSON.stringify({
-      meeting_url: $("meetingUrl").value, join_at: joinLocal ? new Date(joinLocal).toISOString() : undefined, request_key: crypto.randomUUID() }) });
+      meeting_url: $("meetingUrl").value, join_at: joinLocal ? new Date(joinLocal).toISOString() : undefined, request_key: crypto.randomUUID(),
+      meeting_type: $("meetingType").value, subject_label: $("subjectLabel").value, subject_ref: $("subjectRef").value }) });
     $("launchMsg").textContent = meeting.status === "scheduled" ? "Bot scheduled. Its status updates below." : `Status: ${meeting.status}`;
     $("launchMsg").className = "msg ok"; $("launchForm").reset();
   } catch (e) { $("launchMsg").textContent = e.message; $("launchMsg").className = "msg bad"; }
@@ -151,13 +195,22 @@ $("syncBtn").addEventListener("click", async () => {
 });
 
 document.addEventListener("change", async (ev) => {
-  const id = ev.target.dataset?.event; if (!id) return;
+  const id = ev.target.dataset?.event || ev.target.dataset?.typeFor; if (!id) return;
+  const box = document.querySelector(`[data-event="${id}"]`), type = document.querySelector(`[data-type-for="${id}"]`);
   ev.target.disabled = true;
-  try { await api(`/api/calendar-events/${id}/record`, { method: "POST", body: JSON.stringify({ enabled: ev.target.checked }) }); }
-  catch (e) { ev.target.checked = !ev.target.checked; alert(e.message); }
+  try { await api(`/api/calendar-events/${id}/record`, { method: "POST", body: JSON.stringify({ enabled: box.checked, meeting_type: type.value }) }); }
+  catch (e) { if (ev.target === box) box.checked = !box.checked; alert(e.message); }
   finally { await Promise.all([loadEvents(), loadMeetings()]).catch(() => {}); }
 });
-document.addEventListener("click", (ev) => { const id = ev.target.dataset?.open; if (id) openTranscript(id); });
+document.addEventListener("click", async (ev) => {
+  const id = ev.target.dataset?.open; if (id) return openTranscript(id);
+  const rerun = ev.target.dataset?.rerun;
+  if (rerun) {
+    ev.target.disabled = true;
+    try { await api(`/api/meetings/${rerun}/analysis`, { method: "POST", body: JSON.stringify({ meeting_type: $("rerunType").value }) }); await openTranscript(rerun); loadMeetings(); }
+    catch (e) { alert(e.message); ev.target.disabled = false; }
+  }
+});
 
 if (token) showApp(); else showAuth();
 setInterval(() => { if (!$("appView").hidden) { loadMeetings().catch(() => {}); } }, 5000);

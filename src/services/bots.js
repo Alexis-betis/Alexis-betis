@@ -1,19 +1,25 @@
 import crypto from "node:crypto";
 import { nowIso } from "../db.js";
 import { RecallAmbiguousError, RecallApiError } from "../recall/client.js";
+import { MEETING_TYPES } from "./analysis.js";
 
 export class UserInputError extends Error {}
 
-const SUPPORTED_HOSTS = [
-  /(^|\.)zoom\.us$/,
-  /(^|\.)zoomgov\.com$/,
-  /^meet\.google\.com$/,
-  /^teams\.microsoft\.com$/,
-  /^teams\.live\.com$/,
-  /(^|\.)webex\.com$/,
-  /(^|\.)gotomeeting\.com$/,
-  /^meet\.goto\.com$/,
+// Hosts from Recall's documented meeting-URL formats, used to label the platform.
+// Unknown https links are still sent: Recall validates them (and unwraps Mimecast,
+// Proofpoint and Calendly links) and its 400 message is shown to the user.
+const PLATFORMS = [
+  ["zoom", /(^|\.)(zoom\.us|zoom\.com|zoom-x\.de|zoomgov\.com)$/],
+  ["google_meet", /^meet\.google\.com$/],
+  ["microsoft_teams", /(^|\.)(teams\.microsoft\.com|teams\.cloud\.microsoft|teams\.live\.com|teams\.microsoft\.us)$/],
+  ["webex", /(^|\.)webex\.com$/],
+  ["goto_meeting", /(^|\.)(gotomeeting\.com|goto\.com|gotomeet\.me)$/],
 ];
+
+export function detectPlatform(url) {
+  const host = new URL(url).hostname.toLowerCase();
+  return PLATFORMS.find(([, re]) => re.test(host))?.[0] ?? null;
+}
 
 export function normalizeMeetingUrl(input) {
   let url;
@@ -23,9 +29,6 @@ export function normalizeMeetingUrl(input) {
     throw new UserInputError("Enter a full meeting link, e.g. https://meet.google.com/abc-defg-hij");
   }
   if (url.protocol !== "https:") throw new UserInputError("Meeting links must use https");
-  if (!SUPPORTED_HOSTS.some((re) => re.test(url.hostname.toLowerCase()))) {
-    throw new UserInputError("Supported platforms: Zoom, Google Meet, Microsoft Teams, Webex, GoTo Meeting");
-  }
   return url.toString();
 }
 
@@ -70,8 +73,23 @@ export function describeRecallError(err) {
  * User-driven ad-hoc launch. Persists the intent first, then creates the bot.
  * `requestKey` makes double-submits return the same meeting instead of a second bot.
  */
-export async function launchAdHocBot({ db, recall, config, log }, { meetingUrl, joinAt, requestKey }) {
+export function normalizeMeetingType(input) {
+  const t = input || "candidate_interview";
+  if (!MEETING_TYPES.includes(t)) throw new UserInputError(`meeting_type must be one of ${MEETING_TYPES.join(", ")}`);
+  return t;
+}
+
+const optionalText = (v, max = 200) => {
+  const s = v == null ? "" : String(v).trim();
+  if (s.length > max) throw new UserInputError("text field too long");
+  return s || null;
+};
+
+export async function launchAdHocBot({ db, recall, config, log }, { meetingUrl, joinAt, requestKey, meetingType, subjectRef, subjectLabel }) {
   const url = normalizeMeetingUrl(meetingUrl);
+  const type = normalizeMeetingType(meetingType);
+  const ref = optionalText(subjectRef);
+  const label = optionalText(subjectLabel);
   const at = normalizeJoinAt(joinAt);
   const key = String(requestKey || "").trim() || crypto.randomUUID();
   if (key.length > 100) throw new UserInputError("request_key too long");
@@ -82,9 +100,9 @@ export async function launchAdHocBot({ db, recall, config, log }, { meetingUrl, 
   const id = crypto.randomUUID();
   const ts = nowIso();
   db.prepare(
-    `INSERT INTO meetings (id, request_key, source, meeting_url, join_at, status, created_at, updated_at)
-     VALUES (?, ?, 'adhoc', ?, ?, 'scheduling', ?, ?)`,
-  ).run(id, key, url, at, ts, ts);
+    `INSERT INTO meetings (id, request_key, source, meeting_type, subject_ref, subject_label, meeting_url, join_at, status, created_at, updated_at)
+     VALUES (?, ?, 'adhoc', ?, ?, ?, ?, ?, 'scheduling', ?, ?)`,
+  ).run(id, key, type, ref, label, url, at, ts, ts);
 
   const update = (fields) => {
     const cols = Object.keys(fields);
