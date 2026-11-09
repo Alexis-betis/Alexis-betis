@@ -57,6 +57,10 @@ Connecting a calendar only syncs events. A calendar meeting gets a bot only when
 
 When an event moves, the bot is rescheduled. When an event is deleted or Record is turned off, the pending bot is removed. Bots that are already in progress, and past meetings, are left alone. `test/calendar.test.js` covers the rule.
 
+## Interface
+
+The UI is in French and reuses the Profilr design from www.profilr.eu: the sapin/citron/menthe colour tokens, Clash Display for headings, Figtree for body text, pill buttons with the citron dot, and the clover logo. Dark mode uses the site's night palette. Fonts and logo are self-hosted under `public/assets/`: Figtree is under SIL OFL 1.1, Clash Display under ITF FFL 2.0, which allows self-hosting of the unmodified files.
+
 ## Configuration
 
 | Variable | Required | Notes |

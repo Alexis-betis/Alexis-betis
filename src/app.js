@@ -9,6 +9,17 @@ import { requeueAnalysis } from "./services/analysis.js";
 import { detectPlatform, normalizeMeetingType } from "./services/bots.js";
 
 const INDEX_HTML = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+
+// Profilr brand assets (fonts, logo), loaded once; only these exact paths are served.
+const ASSET_TYPES = { ".woff2": "font/woff2", ".svg": "image/svg+xml" };
+const ASSETS = new Map();
+for (const dir of ["", "fonts/"]) {
+  const base = new URL(`../public/assets/${dir}`, import.meta.url);
+  for (const name of fs.readdirSync(base)) {
+    const type = ASSET_TYPES[name.slice(name.lastIndexOf("."))];
+    if (type) ASSETS.set(`/assets/${dir}${name}`, { type, body: fs.readFileSync(new URL(name, base)) });
+  }
+}
 const MAX_BODY = 1024 * 1024;
 const FORWARDED_CALLBACK_PARAMS = ["state", "code", "error", "recall_calendar_setup_probe"];
 
@@ -121,6 +132,11 @@ export function createApp(ctx) {
       }
 
       if (route === "GET /healthz") return send(res, 200, { ok: true });
+      if (req.method === "GET" && ASSETS.has(url.pathname)) {
+        const asset = ASSETS.get(url.pathname);
+        res.writeHead(200, { "content-type": asset.type, "cache-control": "public, max-age=604800", "x-content-type-options": "nosniff" });
+        return res.end(asset.body);
+      }
       if (route === "GET /" || route === "GET /index.html") return send(res, 200, INDEX_HTML);
 
       // ---- Profilr app API (bearer token) ----

@@ -1,84 +1,123 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Profilr Notetaker</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <style>
-  :root { --bg:#f7f7f8; --card:#fff; --ink:#1b1b1f; --muted:#6b6b76; --line:#e4e4e8; --accent:#3b5bdb; --ok:#2b8a3e; --bad:#c92a2a; --warn:#e67700; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#141417; --card:#1d1d22; --ink:#ececf1; --muted:#9a9aa6; --line:#2e2e36; --accent:#748ffc; --ok:#51cf66; --bad:#ff6b6b; --warn:#ffa94d; } }
+  /* Profilr brand: tokens, fonts and components from www.profilr.eu (site.css) */
+  @font-face{font-family:'Clash Display';font-style:normal;font-weight:500;font-display:swap;src:url(/assets/fonts/ClashDisplay-Medium.woff2) format('woff2')}
+  @font-face{font-family:'Clash Display';font-style:normal;font-weight:600;font-display:swap;src:url(/assets/fonts/ClashDisplay-Semibold.woff2) format('woff2')}
+  @font-face{font-family:'Figtree';font-style:normal;font-weight:400 800;font-display:swap;src:url(/assets/fonts/figtree-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Figtree';font-style:normal;font-weight:400 800;font-display:swap;src:url(/assets/fonts/figtree-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+  :root {
+    --sapin:#043428; --sapin-80:#224C42; --citron:#DFFFA5; --citron-pale:#FAFFF1;
+    --dragee:#D9E5F4; --lin:#E0DAEE; --menthe:#E4EAE8; --menthe-pale:#F0F3F3; --trait:#C3D0CC;
+    --display:'Clash Display','Figtree',-apple-system,BlinkMacSystemFont,sans-serif;
+    --corps:'Figtree',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --ombre:0 4px 10px rgba(0,0,0,.05);
+    --bg:#fff; --surface:#fff; --surface-2:var(--menthe-pale); --ink:var(--sapin); --muted:#4F6B63; --line:var(--trait);
+    --field-line:rgba(4,52,40,.14); --btn-bg:var(--sapin); --btn-ink:#fff; --btn-hover:var(--sapin-80); --dot:var(--citron);
+    --ok-bg:var(--citron); --ok-ink:var(--sapin); --warn-bg:var(--dragee); --warn-ink:var(--sapin); --bad-bg:#FBE3DF; --bad-ink:#9B2C1F; --idle-bg:var(--menthe); --idle-ink:var(--muted);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg:#050807; --surface:#0B1210; --surface-2:#0F1916; --ink:#EAF2EE; --muted:#9FB5AC; --line:rgba(223,255,165,.16);
+    --field-line:rgba(223,255,165,.22); --btn-bg:var(--citron); --btn-ink:var(--sapin); --btn-hover:#EAFFC4; --dot:var(--sapin);
+    --ok-bg:rgba(223,255,165,.18); --ok-ink:var(--citron); --warn-bg:rgba(217,229,244,.16); --warn-ink:var(--dragee); --bad-bg:rgba(255,120,100,.16); --bad-ink:#FFB4A6; --idle-bg:rgba(255,255,255,.07); --idle-ink:var(--muted);
+  } }
+  :root[data-theme="dark"] {
+    --bg:#050807; --surface:#0B1210; --surface-2:#0F1916; --ink:#EAF2EE; --muted:#9FB5AC; --line:rgba(223,255,165,.16);
+    --field-line:rgba(223,255,165,.22); --btn-bg:var(--citron); --btn-ink:var(--sapin); --btn-hover:#EAFFC4; --dot:var(--sapin);
+    --ok-bg:rgba(223,255,165,.18); --ok-ink:var(--citron); --warn-bg:rgba(217,229,244,.16); --warn-ink:var(--dragee); --bad-bg:rgba(255,120,100,.16); --bad-ink:#FFB4A6; --idle-bg:rgba(255,255,255,.07); --idle-ink:var(--muted);
+  }
+
   * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--ink); }
-  main { max-width:960px; margin:0 auto; padding:24px 16px 64px; }
-  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:16px; margin:0 0 12px; }
-  .sub { color:var(--muted); margin:0 0 20px; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
-  form.row { display:flex; gap:8px; flex-wrap:wrap; }
-  input { flex:1 1 260px; padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); font:inherit; }
-  input[type=datetime-local] { flex:0 1 220px; }
-  select { padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); font:inherit; }
-  .analysis h3 { font-size:14px; margin:14px 0 6px; } .analysis ul { margin:0 0 8px; padding-left:18px; } .analysis q { color:var(--muted); }
-  .kv { display:grid; grid-template-columns:max-content 1fr; gap:4px 12px; font-size:14px; } .kv dt { color:var(--muted); } .kv dd { margin:0; }
-  button { padding:9px 14px; border:0; border-radius:7px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
-  button:disabled { opacity:.6; cursor:default; }
-  table { width:100%; border-collapse:collapse; } td, th { text-align:left; padding:8px 6px; border-top:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:500; font-size:13px; border-top:0; }
-  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); white-space:nowrap; }
-  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); } .muted { color:var(--muted); font-size:13px; }
-  .url { word-break:break-all; font-size:13px; }
-  .msg { margin-top:8px; min-height:1.2em; }
-  .transcript p { margin:0 0 10px; } .transcript b { margin-right:6px; }
+  body { margin:0; font-family:var(--corps); font-size:15px; line-height:1.45; color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
+  main { max-width:1180px; margin:0 auto; padding:28px 16px 72px; }
+  header.top { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  header.top img { width:34px; height:34px; }
+  h1, h2, h3 { font-family:var(--display); font-weight:500; line-height:1.05; margin:0; }
+  h1 { font-size:34px; } h2 { font-size:22px; margin-bottom:14px; } h3 { font-size:16px; margin:18px 0 8px; }
+  .lede { color:var(--muted); margin:6px 0 24px; max-width:68ch; }
+  section { background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:22px; margin-bottom:18px; box-shadow:var(--ombre); }
+  form.row, .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input, select { font:inherit; font-size:15px; padding:12px 16px; border-radius:14px; border:1.5px solid var(--field-line); background:var(--surface); color:var(--ink); min-width:0; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline:2px solid var(--sapin-80); outline-offset:2px; }
+  #meetingUrl { flex:2 1 280px; } #subjectLabel { flex:1 1 220px; } #subjectRef { flex:0 1 170px; } #joinAt { flex:0 1 220px; }
+  .btn { display:inline-flex; align-items:center; gap:10px; background:var(--btn-bg); color:var(--btn-ink); border:0; font:inherit; font-size:14px; font-weight:600; padding:13px 22px; border-radius:100px; cursor:pointer; transition:background .18s; }
+  .btn::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--dot); }
+  .btn:hover { background:var(--btn-hover); }
+  .btn--ghost { background:transparent; color:var(--ink); border:1.5px solid var(--field-line); padding:9px 16px; }
+  .btn--ghost::before { display:none; } .btn--ghost:hover { background:var(--surface-2); }
+  button:disabled { opacity:.55; cursor:default; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:11px 8px; border-top:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; border-top:0; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:100px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .ok { background:var(--ok-bg); color:var(--ok-ink); } .warn { background:var(--warn-bg); color:var(--warn-ink); }
+  .bad { background:var(--bad-bg); color:var(--bad-ink); } .idle { background:var(--idle-bg); color:var(--idle-ink); }
+  .muted { color:var(--muted); font-size:13px; } .err { color:var(--bad-ink); font-size:13px; }
+  .url { word-break:break-all; font-size:13px; color:var(--muted); }
+  .msg { margin-top:10px; min-height:1.2em; font-size:14px; }
   .scroll { overflow-x:auto; }
+  .note { background:var(--surface-2); border-radius:14px; padding:12px 14px; color:var(--muted); font-size:13px; margin-top:12px; }
+  .analysis ul { margin:0 0 6px; padding-left:20px; } .analysis li { margin:3px 0; }
+  .analysis q { color:var(--muted); font-style:italic; }
+  .summary { font-size:16px; background:var(--citron-pale); color:var(--sapin); border-radius:14px; padding:14px 16px; }
+  :root[data-theme="dark"] .summary { background:rgba(223,255,165,.08); color:var(--ink); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .summary { background:rgba(223,255,165,.08); color:var(--ink); } }
+  .kv { display:grid; grid-template-columns:max-content 1fr; gap:6px 16px; margin-top:12px; } .kv dt { color:var(--muted); } .kv dd { margin:0; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0 28px; }
+  .transcript p { margin:0 0 12px; } .transcript b { margin-right:8px; }
+  @media (max-width: 640px) { h1 { font-size:28px; } section { padding:16px; border-radius:16px; } .kv { grid-template-columns:1fr; gap:2px; } .kv dd { margin-bottom:8px; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Profilr Notetaker</h1>
-  <p class="sub">Send a Recall.ai bot to a meeting, or choose calendar meetings to record. After the meeting you get the transcript, plus interview notes or a job brief.</p>
+  <header class="top"><img src="/assets/favicon.svg" alt=""><h1>Profilr Notetaker</h1></header>
+  <p class="lede">Envoyez un bot dans une réunion, ou choisissez les réunions de votre agenda à enregistrer. Après l'appel : la transcription, et des notes d'entretien ou un brief de poste.</p>
 
   <section id="auth" hidden>
-    <h2>Sign in</h2>
-    <form class="row" id="authForm"><input id="token" type="password" placeholder="Access token" autocomplete="current-password" required><button>Continue</button></form>
+    <h2>Connexion</h2>
+    <form class="row" id="authForm"><input id="token" type="password" placeholder="Jeton d'accès" autocomplete="current-password" required style="flex:1 1 260px"><button class="btn">Continuer</button></form>
   </section>
 
   <div id="appView" hidden>
     <section>
-      <h2>Launch a bot now</h2>
+      <h2>Envoyer un bot maintenant</h2>
       <form class="row" id="launchForm">
-        <input id="meetingUrl" type="url" placeholder="https://meet.google.com/abc-defg-hij" required>
-        <input id="joinAt" type="datetime-local" title="Optional: schedule for later">
-        <select id="meetingType" title="What should happen after the meeting">
-          <option value="candidate_interview">Candidate interview → notes</option>
-          <option value="client_intake">Client intake call → job brief</option>
-          <option value="other">Other → transcript only</option>
+        <input id="meetingUrl" type="url" placeholder="https://meet.google.com/abc-defg-hij" required aria-label="Lien de la réunion">
+        <select id="meetingType" aria-label="Type de réunion">
+          <option value="candidate_interview">Entretien candidat → notes</option>
+          <option value="client_intake">Appel client → brief de poste</option>
+          <option value="other">Autre → transcription seule</option>
         </select>
-        <input id="subjectLabel" placeholder="Candidate or role (optional)" maxlength="200">
-        <input id="subjectRef" placeholder="Profilr ID (optional)" maxlength="200" style="flex:0 1 160px">
-        <button id="launchBtn">Send bot</button>
+        <input id="subjectLabel" placeholder="Candidat ou poste (optionnel)" maxlength="200" aria-label="Candidat ou poste">
+        <input id="subjectRef" placeholder="ID Profilr (optionnel)" maxlength="200" aria-label="ID Profilr">
+        <input id="joinAt" type="datetime-local" title="Optionnel : programmer pour plus tard" aria-label="Heure d'arrivée du bot">
+        <button class="btn" id="launchBtn">Envoyer le bot</button>
       </form>
-      <div class="msg muted" id="launchMsg">Zoom, Google Meet, Microsoft Teams, Webex and GoTo Meeting links work. The bot joins as “Profilr Notetaker” and posts a recording notice in the meeting chat.</div>
+      <div class="msg muted" id="launchMsg">Fonctionne avec Google Meet, Microsoft Teams, Zoom, Webex et GoTo Meeting. Le bot rejoint sous le nom « Profilr Notetaker » et annonce l'enregistrement dans le chat.</div>
     </section>
 
     <section>
-      <h2>Upcoming calendar meetings</h2>
-      <div class="row" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-        <button class="ghost" id="syncBtn">Sync calendars</button><span class="muted" id="calInfo"></span>
-      </div>
-      <div class="scroll"><table><thead><tr><th>When</th><th>Meeting</th><th>Bot</th><th>Type</th><th>Record</th></tr></thead><tbody id="events"></tbody></table></div>
-      <div class="muted">A bot is scheduled only for meetings you turn on here. Nothing is recorded by default.</div>
+      <h2>Réunions à venir (agenda)</h2>
+      <div class="row" style="margin-bottom:10px"><button class="btn btn--ghost" id="syncBtn">Synchroniser les agendas</button><span class="muted" id="calInfo"></span></div>
+      <div class="scroll"><table><thead><tr><th>Quand</th><th>Réunion</th><th>Bot</th><th>Type</th><th>Enregistrer</th></tr></thead><tbody id="events"></tbody></table></div>
+      <div class="note">Un bot n'est programmé que pour les réunions que vous activez ici. Rien n'est enregistré par défaut.</div>
     </section>
 
     <section>
-      <h2>Meetings</h2>
-      <div class="scroll"><table><thead><tr><th>Join</th><th>Meeting</th><th>Bot status</th><th>Transcript</th><th>Analysis</th></tr></thead><tbody id="meetings"></tbody></table></div>
+      <h2>Réunions</h2>
+      <div class="scroll"><table><thead><tr><th>Date</th><th>Réunion</th><th>Bot</th><th>Transcription</th><th>Analyse</th></tr></thead><tbody id="meetings"></tbody></table></div>
     </section>
 
     <section id="detail" hidden>
-      <h2 id="detailTitle">Meeting</h2>
+      <h2 id="detailTitle">Réunion</h2>
       <div class="analysis" id="analysis"></div>
-      <h3>Transcript</h3>
+      <h3>Transcription</h3>
       <div class="transcript" id="transcript"></div>
     </section>
   </div>
@@ -88,56 +127,59 @@ const $ = (id) => document.getElementById(id);
 let token = null;
 try { token = sessionStorage.getItem("profilr_token"); } catch {}
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const fmt = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle:"medium", timeStyle:"short" }) : "";
+const fmt = (iso) => iso ? new Date(iso).toLocaleString("fr-FR", { dateStyle:"medium", timeStyle:"short" }) : "";
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers: { "content-type":"application/json", authorization:`Bearer ${token}`, ...(opts.headers||{}) } });
-  if (res.status === 401) { showAuth(); throw new Error("Unauthorized"); }
+  if (res.status === 401) { showAuth(); throw new Error("Non autorisé"); }
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error || body.meeting?.error || `HTTP ${res.status}`), { body });
+  if (!res.ok) throw Object.assign(new Error(body.error || body.meeting?.error || `Erreur HTTP ${res.status}`), { body });
   return body;
 }
 
 const STATUS = {
-  scheduling:["Scheduling","muted"], scheduled:["Scheduled","ok"], create_unconfirmed:["Confirming…","warn"], failed:["Failed","bad"], cancelled:["Cancelled","muted"],
-  joining_call:["Joining","warn"], in_waiting_room:["Waiting room — admit the bot","warn"], in_call_not_recording:["In call (not recording)","warn"],
-  recording_permission_allowed:["Recording allowed","ok"], recording_permission_denied:["Recording denied","bad"], in_call_recording:["Recording","ok"],
-  call_ended:["Call ended","muted"], done:["Done","ok"], fatal:["Failed","bad"],
+  scheduling:["Programmation…","idle"], scheduled:["Programmé","ok"], create_unconfirmed:["Confirmation…","warn"], failed:["Échec","bad"], cancelled:["Annulé","idle"],
+  joining_call:["Connexion","warn"], in_waiting_room:["Salle d'attente — admettez le bot","warn"], in_call_not_recording:["En réunion (n'enregistre pas)","warn"],
+  recording_permission_allowed:["Enregistrement autorisé","ok"], recording_permission_denied:["Enregistrement refusé","bad"], in_call_recording:["Enregistre","ok"],
+  call_ended:["Réunion terminée","idle"], done:["Terminé","ok"], fatal:["Échec","bad"],
 };
-const TSTATUS = { requested:["Requested","warn"], processing:["Transcribing…","warn"], request_unconfirmed:["Confirming…","warn"], done:["Ready","ok"], failed:["Failed","bad"], no_recording:["No recording","bad"] };
-const TYPES = { candidate_interview:"Interview", client_intake:"Client intake", other:"Other" };
-const ASTATUS = { pending:["Queued","warn"], running:["Analysing…","warn"], done:["Ready","ok"], failed:["Failed","bad"], skipped:["Skipped","muted"] };
-const pill = (map, s) => { if (!s) return '<span class="muted">—</span>'; const [t, c] = map[s] || [s, "muted"]; return `<span class="pill ${c}">${esc(t)}</span>`; };
+const TSTATUS = { requested:["Demandée","warn"], processing:["En cours…","warn"], request_unconfirmed:["Confirmation…","warn"], done:["Prête","ok"], failed:["Échec","bad"], no_recording:["Pas d'enregistrement","bad"] };
+const TYPES = { candidate_interview:"Entretien candidat", client_intake:"Appel client", other:"Autre" };
+const ASTATUS = { pending:["En attente","warn"], running:["Analyse…","warn"], done:["Prête","ok"], failed:["Échec","bad"], skipped:["Ignorée","idle"] };
+const EVIDENCE = { mentioned:"cité", described_experience:"expérience décrite", demonstrated:"maîtrise démontrée" };
+const pill = (map, s) => { if (!s) return '<span class="muted">—</span>'; const [t, c] = map[s] || [s, "idle"]; return `<span class="pill ${c}">${esc(t)}</span>`; };
 
 async function loadMeetings() {
   const { meetings } = await api("/api/meetings");
   $("meetings").innerHTML = meetings.map((m) => `<tr>
-    <td>${fmt(m.join_at)}<div class="muted">${m.source === "calendar" ? "Calendar" : "Manual"} · ${esc(TYPES[m.meeting_type] || m.meeting_type)}</div></td>
-    <td>${m.title ? esc(m.title) + "<br>" : ""}${m.subject_label ? `<b>${esc(m.subject_label)}</b><br>` : ""}<span class="url">${esc(m.meeting_url)}</span>${m.error ? `<div class="bad muted">${esc(m.error)}</div>` : ""}</td>
+    <td>${fmt(m.join_at)}<div class="muted">${m.source === "calendar" ? "Agenda" : "Manuel"} · ${esc(TYPES[m.meeting_type] || m.meeting_type)}</div></td>
+    <td>${m.title ? esc(m.title) + "<br>" : ""}${m.subject_label ? `<b>${esc(m.subject_label)}</b><br>` : ""}<span class="url">${esc(m.meeting_url)}</span>${m.error ? `<div class="err">${esc(m.error)}</div>` : ""}</td>
     <td>${pill(STATUS, m.status)}${m.status_sub_code ? `<div class="muted">${esc(m.status_sub_code)}</div>` : ""}</td>
-    <td>${pill(TSTATUS, m.transcript_status)}${m.transcript_status === "done" ? ` <button class="ghost" data-open="${m.id}">View</button>` : ""}</td>
-    <td>${m.analysis ? pill(ASTATUS, m.analysis.status) + (m.analysis.export_status === "sent" ? '<div class="muted">sent to Profilr</div>' : m.analysis.export_status === "failed" ? '<div class="bad muted">export failed</div>' : "") : '<span class="muted">—</span>'}</td></tr>`).join("")
-    || '<tr><td colspan="5" class="muted">No meetings yet.</td></tr>';
+    <td>${pill(TSTATUS, m.transcript_status)}${m.transcript_status === "done" ? ` <button class="btn btn--ghost" data-open="${m.id}">Ouvrir</button>` : ""}</td>
+    <td>${m.analysis ? pill(ASTATUS, m.analysis.status) + (m.analysis.export_status === "sent" ? '<div class="muted">envoyée à Profilr</div>' : m.analysis.export_status === "failed" ? '<div class="err">export en échec</div>' : "") : '<span class="muted">—</span>'}</td></tr>`).join("")
+    || '<tr><td colspan="5" class="muted">Aucune réunion pour l\'instant.</td></tr>';
 }
 
 const list = (items) => items?.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : '<p class="muted">—</p>';
 const kv = (pairs) => `<dl class="kv">${pairs.filter(([, v]) => v).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
 const evid = (items) => items?.length ? `<ul>${items.map((e) => `<li>${esc(e.point)}${e.quote ? ` <q>${esc(e.quote)}</q>` : ""}${e.timestamp ? ` <span class="muted">${esc(e.timestamp)}</span>` : ""}</li>`).join("")}</ul>` : '<p class="muted">—</p>';
+const block = (title, html) => `<div><h3>${title}</h3>${html}</div>`;
 
 function renderAnalysis(a) {
   if (!a) return "";
-  if (a.status !== "done" || !a.result) return `<p>${pill(ASTATUS, a.status)} ${a.error ? `<span class="bad muted">${esc(a.error)}</span>` : ""}</p>`;
+  if (a.status !== "done" || !a.result) return `<p>${pill(ASTATUS, a.status)} ${a.error ? `<span class="err">${esc(a.error)}</span>` : ""}</p>`;
   const r = a.result;
-  if (a.kind === "interview_notes") return `<h3>Interview notes</h3><p>${esc(r.summary)}</p>
-    ${kv([["Candidate", r.candidate_name], ["Current role", r.current_role], ["Current salary", r.salary_current], ["Expectations", r.salary_expectations], ["Availability", r.availability], ["Location / remote", r.location_and_remote], ["Other processes", r.other_processes]])}
-    <h3>Strengths</h3>${evid(r.strengths)}<h3>Concerns</h3>${evid(r.concerns)}
-    <h3>Skills</h3>${list(r.skills.map((s) => `${s.skill} (${s.evidence.replace("_", " ")})`))}
-    <h3>Motivations</h3>${list(r.motivations)}<h3>Next steps</h3>${list(r.next_steps)}<h3>Open questions</h3>${list(r.open_questions)}`;
-  return `<h3>Job brief — ${esc(r.job_title)}</h3><p>${esc(r.summary)}</p>
-    ${kv([["Company", r.company_name], ["Seniority", r.seniority], ["Location", r.location], ["Remote", r.remote_policy], ["Contract", r.contract_type], ["Salary", r.salary_range], ["Timeline", r.timeline], ["Team", r.team_context]])}
-    <h3>Responsibilities</h3>${list(r.responsibilities)}<h3>Must-have</h3>${list(r.must_have_skills)}<h3>Nice-to-have</h3>${list(r.nice_to_have_skills)}
-    <h3>Dealbreakers</h3>${list(r.dealbreakers)}<h3>Hiring process</h3>${list(r.hiring_process)}<h3>Open questions</h3>${list(r.open_questions)}
-    <h3>Search keywords</h3>${list([...r.search_keywords.job_titles, ...r.search_keywords.skills, ...r.search_keywords.target_companies])}`;
+  if (a.kind === "interview_notes") return `<h3>Notes d'entretien</h3><p class="summary">${esc(r.summary)}</p>
+    ${kv([["Candidat", r.candidate_name], ["Poste actuel", r.current_role], ["Salaire actuel", r.salary_current], ["Prétentions", r.salary_expectations], ["Disponibilité", r.availability], ["Lieu / télétravail", r.location_and_remote], ["Autres process", r.other_processes]])}
+    <div class="grid2">${block("Points forts", evid(r.strengths))}${block("Points de vigilance", evid(r.concerns))}
+    ${block("Compétences", list(r.skills.map((s) => `${s.skill} (${EVIDENCE[s.evidence] || s.evidence})`)))}${block("Motivations", list(r.motivations))}
+    ${block("Prochaines étapes", list(r.next_steps))}${block("Questions ouvertes", list(r.open_questions))}</div>`;
+  return `<h3>Brief de poste — ${esc(r.job_title)}</h3><p class="summary">${esc(r.summary)}</p>
+    ${kv([["Entreprise", r.company_name], ["Séniorité", r.seniority], ["Lieu", r.location], ["Télétravail", r.remote_policy], ["Contrat", r.contract_type], ["Salaire", r.salary_range], ["Calendrier", r.timeline], ["Équipe", r.team_context]])}
+    <div class="grid2">${block("Missions", list(r.responsibilities))}${block("Indispensable", list(r.must_have_skills))}
+    ${block("Apprécié", list(r.nice_to_have_skills))}${block("Rédhibitoire", list(r.dealbreakers))}
+    ${block("Process de recrutement", list(r.hiring_process))}${block("Questions ouvertes", list(r.open_questions))}</div>
+    ${block("Mots-clés de recherche", list([...r.search_keywords.job_titles, ...r.search_keywords.skills, ...r.search_keywords.target_companies]))}`;
 }
 
 async function openTranscript(id) {
@@ -145,25 +187,25 @@ async function openTranscript(id) {
   $("detail").hidden = false;
   $("detailTitle").textContent = meeting.subject_label || meeting.title || meeting.meeting_url;
   $("analysis").innerHTML = renderAnalysis(meeting.analysis) +
-    (meeting.transcript ? `<p><select id="rerunType">${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${v === meeting.meeting_type ? "selected" : ""}>${l}</option>`).join("")}</select>
-     <button class="ghost" data-rerun="${meeting.id}">Re-run analysis</button></p>` : "");
+    (meeting.transcript ? `<div class="row" style="margin-top:16px"><select id="rerunType" aria-label="Type de réunion">${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${v === meeting.meeting_type ? "selected" : ""}>${l}</option>`).join("")}</select>
+     <button class="btn btn--ghost" data-rerun="${meeting.id}">Relancer l'analyse</button></div>` : "");
   $("transcript").innerHTML = (meeting.transcript || []).map((s) =>
-    `<p><b>${esc(s.speaker)}</b><span class="muted">${s.start != null ? new Date(s.start * 1000).toISOString().slice(11, 19) : ""}</span><br>${esc(s.text)}</p>`).join("") || '<p class="muted">Empty transcript.</p>';
+    `<p><b>${esc(s.speaker)}</b><span class="muted">${s.start != null ? new Date(s.start * 1000).toISOString().slice(11, 19) : ""}</span><br>${esc(s.text)}</p>`).join("") || '<p class="muted">Transcription vide.</p>';
   $("detail").scrollIntoView({ behavior: "smooth" });
 }
 
 async function loadEvents() {
   const [{ calendars }, { events }] = await Promise.all([api("/api/calendars"), api("/api/calendar-events")]);
-  $("calInfo").textContent = calendars.length ? calendars.map((c) => `${c.platform_email || c.id} (${c.status})`).join(", ") : "No calendar connected yet.";
+  $("calInfo").textContent = calendars.length ? calendars.map((c) => `${c.platform_email || c.id} (${c.status === "connected" ? "connecté" : c.status})`).join(", ") : "Aucun agenda connecté pour l'instant.";
   $("events").innerHTML = events.map((e) => {
     const past = Date.parse(e.start_time) <= Date.now();
     const disabled = !e.meeting_url || past;
     return `<tr><td>${fmt(e.start_time)}</td>
-      <td>${esc(e.title || "(no title)")}<div class="url muted">${e.meeting_url ? esc(e.meeting_url) : "No meeting link"}</div></td>
+      <td>${esc(e.title || "(sans titre)")}<div class="url">${e.meeting_url ? esc(e.meeting_url) : "Pas de lien de réunion"}</div></td>
       <td>${pill(STATUS, e.bot_status)}</td>
-      <td><select data-type-for="${e.id}" ${disabled ? "disabled" : ""}>${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${v === e.meeting_type ? "selected" : ""}>${l}</option>`).join("")}</select></td>
-      <td><input type="checkbox" data-event="${e.id}" ${e.record ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="Record this meeting"></td></tr>`;
-  }).join("") || '<tr><td colspan="5" class="muted">No upcoming events.</td></tr>';
+      <td><select data-type-for="${e.id}" ${disabled ? "disabled" : ""} aria-label="Type de réunion">${Object.entries(TYPES).map(([v, l]) => `<option value="${v}" ${v === e.meeting_type ? "selected" : ""}>${l}</option>`).join("")}</select></td>
+      <td><input type="checkbox" data-event="${e.id}" ${e.record ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="Enregistrer cette réunion"></td></tr>`;
+  }).join("") || '<tr><td colspan="5" class="muted">Aucune réunion à venir.</td></tr>';
 }
 
 function showAuth() { $("auth").hidden = false; $("appView").hidden = true; }
@@ -176,15 +218,15 @@ $("authForm").addEventListener("submit", (ev) => { ev.preventDefault(); token = 
 
 $("launchForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const btn = $("launchBtn"); btn.disabled = true; $("launchMsg").textContent = "Sending bot…"; $("launchMsg").className = "msg muted";
+  const btn = $("launchBtn"); btn.disabled = true; $("launchMsg").textContent = "Envoi du bot…"; $("launchMsg").className = "msg muted";
   const joinLocal = $("joinAt").value;
   try {
     const { meeting } = await api("/api/meetings", { method: "POST", body: JSON.stringify({
       meeting_url: $("meetingUrl").value, join_at: joinLocal ? new Date(joinLocal).toISOString() : undefined, request_key: crypto.randomUUID(),
       meeting_type: $("meetingType").value, subject_label: $("subjectLabel").value, subject_ref: $("subjectRef").value }) });
-    $("launchMsg").textContent = meeting.status === "scheduled" ? "Bot scheduled. Its status updates below." : `Status: ${meeting.status}`;
-    $("launchMsg").className = "msg ok"; $("launchForm").reset();
-  } catch (e) { $("launchMsg").textContent = e.message; $("launchMsg").className = "msg bad"; }
+    $("launchMsg").textContent = meeting.status === "scheduled" ? "Bot programmé. Son statut s'affiche ci-dessous." : `Statut : ${meeting.status}`;
+    $("launchMsg").className = "msg"; $("launchForm").reset();
+  } catch (e) { $("launchMsg").textContent = e.message; $("launchMsg").className = "msg err"; }
   finally { btn.disabled = false; loadMeetings(); }
 });
 

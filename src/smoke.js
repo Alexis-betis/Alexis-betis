@@ -33,6 +33,8 @@ export async function runSmoke() {
 
   try {
     check("GET / serves UI", (await fetch(`${base}/`)).status === 200);
+    const font = await fetch(`${base}/assets/fonts/figtree-latin.woff2`);
+    check("brand assets served", font.status === 200 && font.headers.get("content-type") === "font/woff2" && (await fetch(`${base}/assets/../src/app.js`)).status === 404);
     check("API requires token", (await fetch(`${base}/api/meetings`)).status === 401);
 
     const created = await fetch(`${base}/api/meetings`, {
