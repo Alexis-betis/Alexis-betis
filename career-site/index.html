@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Site carrière · Profilr</title>
+<meta name="description" content="Module Site carrière de Profilr : créez votre page marque employeur, publiez vos offres et recevez les candidatures.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="ad-top" id="ad-top"></header>
+  <div class="ad-body" id="ad-body">
+    <nav class="ad-nav" id="ad-nav" aria-label="Sections du module"></nav>
+    <aside class="ad-panel" id="ad-panel" aria-label="Panneau d’édition"></aside>
+    <section class="ad-stage" id="ad-stage" aria-label="Aperçu du site">
+      <div class="ad-stagebar" id="ad-stagebar"></div>
+      <div class="ad-frame" id="ad-frame" data-device="desktop"><div id="preview"></div></div>
+    </section>
+    <section id="ad-apps" aria-label="Candidatures reçues" hidden></section>
+  </div>
+</div>
+
+<div id="public" hidden>
+  <div id="public-site"></div>
+  <div class="pub-bar" role="note"><span>Site publié · vue candidat</span> <a href="#" id="public-back">Retour à l’éditeur</a></div>
+</div>
+
+<div class="ad-toast" id="ad-toast" role="status" aria-live="polite"></div>
+
+<script>window.CS = { config: { allowEmbeds: true } };</script>
+<script src="src/brand.js"></script>
+<script src="src/util.js"></script>
+<script src="src/store.js"></script>
+<script src="src/blocks.js"></script>
+<script src="src/site.js"></script>
+<script src="src/admin.js"></script>
+<script>CS.admin.init();</script>
+</body>
+</html>
