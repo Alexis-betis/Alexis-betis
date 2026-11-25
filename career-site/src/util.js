@@ -15,16 +15,32 @@ window.CS = window.CS || {};
   U.uid = (prefix) => (prefix || 'id') + Math.random().toString(36).slice(2, 8);
   U.clone = (o) => JSON.parse(JSON.stringify(o));
 
-  /* Lecture et écriture d'une valeur par chemin "props.items.2.title" */
-  U.getPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+  /* Lecture et écriture par chemin "props.items.2.title".
+     Dans un tableau, un segment non numérique désigne l'élément dont l'id (ou _id) vaut ce segment :
+     "props.items.it3k9.title" ou "questions.q_start.label". Utile pour les traductions, stables même si on réordonne. */
+  const step = (o, k) => {
+    if (o == null) return undefined;
+    if (Array.isArray(o) && !/^\d+$/.test(k)) return o.find((x) => x && (x._id === k || x.id === k));
+    return o[k];
+  };
+  U.getPath = (obj, path) => String(path).split('.').reduce(step, obj);
   U.setPath = (obj, path, value) => {
-    const keys = path.split('.');
+    const keys = String(path).split('.');
     let o = obj;
     for (let i = 0; i < keys.length - 1; i++) {
-      if (o[keys[i]] == null) o[keys[i]] = /^\d+$/.test(keys[i + 1]) ? [] : {};
-      o = o[keys[i]];
+      let next = step(o, keys[i]);
+      if (next == null) { next = /^\d+$/.test(keys[i + 1]) ? [] : {}; o[keys[i]] = next; }
+      o = next;
     }
-    o[keys[keys.length - 1]] = value;
+    const last = keys[keys.length - 1];
+    if (Array.isArray(o) && !/^\d+$/.test(last)) return;
+    o[last] = value;
+  };
+  /* Donne un identifiant stable à chaque élément de liste des blocs */
+  U.ensureIds = (pages) => {
+    (pages || []).forEach((p) => (p.blocks || []).forEach((b) => Object.keys(b.props || {}).forEach((k) => {
+      if (Array.isArray(b.props[k])) b.props[k].forEach((it) => { if (it && typeof it === 'object' && !it._id) it._id = U.uid('i'); });
+    })));
   };
 
   /* ---------- Couleurs ---------- */
@@ -114,10 +130,19 @@ window.CS = window.CS || {};
     external: '<path d="M14 4.5h5.5V10M19.5 4.5 11 13M17 14v4.5c0 .8-.7 1.5-1.5 1.5h-10c-.8 0-1.5-.7-1.5-1.5v-10C4 7.7 4.7 7 5.5 7H10"/>',
     send: '<path d="M20.5 3.5 3.5 10l7 3 3 7z"/><path d="m10.5 13 10-9.5"/>',
     flag: '<path d="M5.5 21V4M5.5 4.5h11l-2 4 2 4h-11"/>',
+    building: '<path d="M4.5 20.5V5c0-.8.7-1.5 1.5-1.5h7c.8 0 1.5.7 1.5 1.5v15.5M14.5 9.5H18c.8 0 1.5.7 1.5 1.5v9.5M3 20.5h18M8 7.5h3M8 11h3M8 14.5h3"/>',
+    award: '<circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.5-1.5 7 5-2.5 5 2.5-1.5-7"/>',
+    chart: '<path d="M4 20.5h16M7 17V11M12 17V6M17 17v-4"/>',
+    history: '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4h4"/><path d="M12 7.5V12l3 2"/>',
+    translate: '<path d="M3.5 5.5h9M8 3.5v2M10.5 5.5c-1 4-3.5 7-7 8.5M5.5 9c1.2 2 3 3.6 5 4.5M13 20.5l3.5-9 3.5 9M14.2 17.5h4.6"/>',
+    paperclip: '<path d="m20 11.5-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3l7.5-7.5"/>',
+    broadcast: '<circle cx="12" cy="12" r="2"/><path d="M8 8a5.5 5.5 0 0 0 0 8M16 8a5.5 5.5 0 0 1 0 8M5 5a9.5 9.5 0 0 0 0 14M19 5a9.5 9.5 0 0 1 0 14"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    doc: '<path d="M14 3.5H7c-.8 0-1.5.7-1.5 1.5v14c0 .8.7 1.5 1.5 1.5h10c.8 0 1.5-.7 1.5-1.5V8z"/><path d="M14 3.5V8h4.5M9 12.5h6M9 16h6"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7 5.3 5.3"/>',
   };
   U.ICONS = P;
-  U.ICON_CHOICES = ['heart', 'rocket', 'users', 'home', 'book', 'coffee', 'euro', 'globe', 'leaf', 'sparkles', 'target', 'shield', 'clock', 'calendar', 'pin', 'briefcase', 'chat', 'star', 'bike', 'baby', 'sun'];
+  U.ICON_CHOICES = ['heart', 'rocket', 'users', 'home', 'book', 'coffee', 'euro', 'globe', 'leaf', 'sparkles', 'target', 'shield', 'clock', 'calendar', 'pin', 'briefcase', 'chat', 'star', 'bike', 'baby', 'sun', 'building', 'award', 'chart'];
   U.icon = (name, cls) =>
     '<svg class="' + (cls || 'i') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     (P[name] || P.star) +
@@ -226,24 +251,32 @@ window.CS = window.CS || {};
   };
 
   /* ---------- Dates et montants ---------- */
-  U.fmtDate = (iso) => {
+  U.locale = (lang) => ((CS.LANGS || []).find((l) => l.id === lang) || { locale: 'fr-FR' }).locale;
+  U.fmtDate = (iso, lang) => {
     if (!iso) return '';
     const d = new Date(iso);
-    return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    return isNaN(d) ? '' : d.toLocaleDateString(U.locale(lang), { day: 'numeric', month: 'short', year: 'numeric' });
   };
   U.fmtDateTime = (iso) => {
     const d = new Date(iso);
     return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   };
-  U.relDays = (iso) => {
+  U.relDays = (iso, lang) => {
     const d = new Date(iso);
     if (isNaN(d)) return '';
     const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (lang === 'en') {
+      if (days <= 0) return 'today';
+      if (days === 1) return 'yesterday';
+      if (days < 30) return days + ' days ago';
+      return 'on ' + U.fmtDate(iso, lang);
+    }
     if (days <= 0) return 'aujourd’hui';
     if (days === 1) return 'hier';
     if (days < 30) return 'il y a ' + days + ' jours';
     return 'le ' + U.fmtDate(iso);
   };
+  U.dayKey = (d) => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
   U.fmtK = (n) => {
     const v = Number(n);
     if (!v) return '';

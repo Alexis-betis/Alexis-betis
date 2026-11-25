@@ -34,6 +34,7 @@ window.CS = window.CS || {};
         { key: 'title', label: 'Titre', type: 'textarea', rows: 2 },
         { key: 'subtitle', label: 'Accroche', type: 'textarea', rows: 3 },
         { key: 'image', label: 'Visuel', type: 'image' },
+        { key: 'imageAlt', label: 'Description du visuel (texte alternatif)', type: 'text', help: 'Lue par les lecteurs d’écran. Laissez vide si l’image est décorative.' },
         { key: 'ctaLabel', label: 'Bouton principal', type: 'text' },
         { key: 'ctaAction', label: 'Action du bouton principal', type: 'select', options: ACTIONS },
         { key: 'secondaryLabel', label: 'Bouton secondaire', type: 'text' },
@@ -53,7 +54,7 @@ window.CS = window.CS || {};
         if (layout === 'cover')
           return '<div class="cs-hero cs-hero--cover">' + img(ctx, p.image, 16 / 7, '', 'cs-hero__bgimg') + '<div class="cs-hero__veil"></div><div class="cs-wrap">' + text + '</div></div>';
         if (layout === 'centered') return '<div class="cs-wrap cs-hero cs-hero--centered">' + text + '</div>';
-        return '<div class="cs-wrap cs-hero cs-hero--split">' + text + '<div class="cs-hero__media">' + img(ctx, p.image, 5 / 4, '') + '</div></div>';
+        return '<div class="cs-wrap cs-hero cs-hero--split">' + text + '<div class="cs-hero__media">' + img(ctx, p.image, 5 / 4, p.imageAlt) + '</div></div>';
       },
     },
 
@@ -78,6 +79,7 @@ window.CS = window.CS || {};
         { key: 'title', label: 'Titre', type: 'text' },
         { key: 'body', label: 'Texte', type: 'md', rows: 7 },
         { key: 'image', label: 'Image', type: 'image' },
+        { key: 'imageAlt', label: 'Description de l’image (texte alternatif)', type: 'text' },
         { key: 'side', label: 'Position de l’image', type: 'select', options: [{ value: 'right', label: 'À droite' }, { value: 'left', label: 'À gauche' }] },
         { key: 'ctaLabel', label: 'Bouton (facultatif)', type: 'text' },
         { key: 'ctaAction', label: 'Action du bouton', type: 'select', options: ACTIONS },
@@ -86,7 +88,7 @@ window.CS = window.CS || {};
       render(p, ctx) {
         return '<div class="cs-wrap cs-split ' + (p.side === 'left' ? 'cs-split--rev' : '') + '"><div class="cs-split__text">' + head(p) + '<div class="cs-prose">' + U.md(p.body) + '</div>' +
           (p.ctaLabel ? '<div class="cs-actions">' + btn(p.ctaLabel, p.ctaAction, 'main') + '</div>' : '') +
-          '</div><div class="cs-split__media">' + img(ctx, p.image, 4 / 3, p.title) + '</div></div>';
+          '</div><div class="cs-split__media">' + img(ctx, p.image, 4 / 3, p.imageAlt || p.title) + '</div></div>';
       },
     },
 
@@ -94,7 +96,7 @@ window.CS = window.CS || {};
       label: 'Chiffres clés', icon: 'target', desc: 'Effectif, nationalités, avis…',
       fields: [
         { key: 'title', label: 'Titre (facultatif)', type: 'text' },
-        { key: 'items', label: 'Chiffres', type: 'list', itemLabel: 'value', max: 6, add: { value: '10', label: 'description' }, fields: [{ key: 'value', label: 'Valeur', type: 'text' }, { key: 'label', label: 'Libellé', type: 'text' }] },
+        { key: 'items', label: 'Chiffres', type: 'list', itemLabel: 'value', max: 6, add: { value: '10', label: 'description' }, fields: [{ key: 'value', label: 'Valeur', type: 'text', noTr: true }, { key: 'label', label: 'Libellé', type: 'text' }] },
       ],
       defaults: { title: '', items: [{ value: '120', label: 'collaborateurs' }, { value: '4', label: 'pays' }, { value: '2012', label: 'année de création' }] },
       render(p) {
@@ -153,7 +155,7 @@ window.CS = window.CS || {};
       fields: [
         { key: 'title', label: 'Titre', type: 'text' },
         { key: 'text', label: 'Texte', type: 'textarea', rows: 2 },
-        { key: 'url', label: 'Vidéo', type: 'video', help: 'Collez un lien YouTube ou Vimeo, ou importez un fichier MP4.' },
+        { key: 'url', label: 'Vidéo', type: 'video', noTr: true, help: 'Collez un lien YouTube ou Vimeo, ou importez un fichier MP4.' },
         { key: 'poster', label: 'Image d’aperçu', type: 'image' },
       ],
       defaults: { title: 'Découvrez l’équipe', text: '', url: '', poster: 'ph:3' },
@@ -164,9 +166,9 @@ window.CS = window.CS || {};
         if (v && v.kind === 'file') {
           media = '<video class="cs-video__el" controls preload="metadata" poster="' + e(poster) + '" src="' + e(v.url) + '"></video>';
         } else if (v && (v.kind === 'youtube' || v.kind === 'vimeo') && CS.config.allowEmbeds) {
-          media = '<button type="button" class="cs-video__poster" data-embed="' + e(v.embed) + '" aria-label="Lire la vidéo"><img src="' + e(poster) + '" alt=""><span class="cs-video__play">' + U.icon('play') + '</span></button>';
+          media = '<button type="button" class="cs-video__poster" data-embed="' + e(v.embed) + '" aria-label="' + e(CS.t(ctx.lang, 'playVideo')) + '"><img src="' + e(poster) + '" alt=""><span class="cs-video__play">' + U.icon('play') + '</span></button>';
         } else if (v) {
-          media = '<a class="cs-video__poster" href="' + e(v.url) + '" target="_blank" rel="noopener" aria-label="Regarder la vidéo"><img src="' + e(poster) + '" alt=""><span class="cs-video__play">' + U.icon('play') + '</span><span class="cs-video__out">Regarder la vidéo ' + U.icon('external') + '</span></a>';
+          media = '<a class="cs-video__poster" href="' + e(v.url) + '" target="_blank" rel="noopener" aria-label="' + e(CS.t(ctx.lang, 'watchVideo')) + '"><img src="' + e(poster) + '" alt=""><span class="cs-video__play">' + U.icon('play') + '</span><span class="cs-video__out">' + e(CS.t(ctx.lang, 'watchVideo')) + ' ' + U.icon('external') + '</span></a>';
         } else {
           media = '<div class="cs-video__poster cs-video__poster--empty"><img src="' + e(poster) + '" alt=""><span class="cs-video__play">' + U.icon('play') + '</span>' +
             (ctx.mode === 'editor' ? '<span class="cs-video__out">Ajoutez un lien YouTube ou Vimeo dans le panneau</span>' : '') + '</div>';
@@ -179,7 +181,7 @@ window.CS = window.CS || {};
       label: 'Témoignages', icon: 'chat', desc: 'Citations de collaborateurs',
       fields: [
         { key: 'title', label: 'Titre', type: 'text' },
-        { key: 'items', label: 'Témoignages', type: 'list', itemLabel: 'name', max: 9, add: { quote: '', name: 'Prénom N.', role: 'Poste', photo: '' }, fields: [{ key: 'quote', label: 'Citation', type: 'textarea', rows: 3 }, { key: 'name', label: 'Nom', type: 'text' }, { key: 'role', label: 'Poste', type: 'text' }, { key: 'photo', label: 'Photo', type: 'image', optional: true }] },
+        { key: 'items', label: 'Témoignages', type: 'list', itemLabel: 'name', max: 9, add: { quote: '', name: 'Prénom N.', role: 'Poste', photo: '' }, fields: [{ key: 'quote', label: 'Citation', type: 'textarea', rows: 3 }, { key: 'name', label: 'Nom', type: 'text', noTr: true }, { key: 'role', label: 'Poste', type: 'text' }, { key: 'photo', label: 'Photo', type: 'image', optional: true }] },
       ],
       defaults: { title: 'Ils et elles en parlent', items: [{ quote: 'Ce que j’aime ici, c’est…', name: 'Prénom N.', role: 'Poste', photo: '' }] },
       render(p) {
@@ -223,6 +225,68 @@ window.CS = window.CS || {};
       },
     },
 
+    teams: {
+      label: 'Équipes et métiers', icon: 'users', desc: 'Une carte par équipe, qui mène à ses offres',
+      fields: [
+        { key: 'title', label: 'Titre', type: 'text' },
+        { key: 'intro', label: 'Introduction', type: 'textarea', rows: 2 },
+        { key: 'items', label: 'Équipes', type: 'list', itemLabel: 'name', max: 12, add: { name: 'Nouvelle équipe', icon: 'users', text: '' }, fields: [
+          { key: 'name', label: 'Nom de l’équipe', type: 'text', noTr: true, help: 'Écrivez-le comme le champ « Équipe » des offres : la carte affiche et filtre les offres de cette équipe.' },
+          { key: 'icon', label: 'Icône', type: 'icon' }, { key: 'text', label: 'Description', type: 'textarea', rows: 2 }] },
+      ],
+      defaults: { title: 'Nos équipes', intro: '', items: [{ name: 'Tech', icon: 'rocket', text: '' }, { name: 'Sales', icon: 'target', text: '' }] },
+      render(p, ctx) {
+        const live = CS.site.liveJobs(ctx.data);
+        return '<div class="cs-wrap">' + head(p) + '<div class="cs-teams">' +
+          (p.items || []).map((it) => {
+            const n = live.filter((j) => (j.department || '').toLowerCase() === (it.name || '').toLowerCase()).length;
+            return '<a class="cs-team" href="#" data-go="' + (n ? 'dept:' + e(it.name) : 'jobs') + '"><span class="cs-card__icon">' + U.icon(it.icon) + '</span><h3 class="cs-h3">' + e(it.name) + '</h3>' + (it.text ? '<p>' + e(it.text) + '</p>' : '') +
+              '<span class="cs-team__count">' + e(CS.t(ctx.lang, 'jobsCount', n)) + (n ? U.icon('arrow') : '') + '</span></a>';
+          }).join('') + '</div></div>';
+      },
+    },
+
+    locations: {
+      label: 'Bureaux et localisations', icon: 'pin', desc: 'Vos adresses, avec photo et lien vers la carte',
+      fields: [
+        { key: 'title', label: 'Titre', type: 'text' },
+        { key: 'intro', label: 'Introduction', type: 'textarea', rows: 2 },
+        { key: 'items', label: 'Bureaux', type: 'list', itemLabel: 'city', max: 12, add: { city: 'Ville', address: '', text: '', image: 'ph:5' }, fields: [
+          { key: 'city', label: 'Ville', type: 'text', noTr: true, help: 'Écrivez-la comme le champ « Lieu » des offres pour afficher le nombre d’offres.' },
+          { key: 'address', label: 'Adresse', type: 'text', noTr: true }, { key: 'text', label: 'Description', type: 'textarea', rows: 2 }, { key: 'image', label: 'Photo', type: 'image' }] },
+      ],
+      defaults: { title: 'Nos bureaux', intro: '', items: [{ city: 'Paris', address: '', text: '', image: 'ph:5' }] },
+      render(p, ctx) {
+        const live = CS.site.liveJobs(ctx.data);
+        return '<div class="cs-wrap">' + head(p) + '<div class="cs-places">' +
+          (p.items || []).map((it) => {
+            const n = live.filter((j) => (j.location || '').toLowerCase() === (it.city || '').toLowerCase()).length;
+            return '<article class="cs-place">' + img(ctx, it.image, 16 / 10, '', 'cs-place__img') + '<div class="cs-place__body"><h3 class="cs-h3">' + e(it.city) + '</h3>' +
+              (it.address ? '<p class="cs-place__addr">' + U.icon('pin') + e(it.address) + '</p>' : '') + (it.text ? '<p>' + e(it.text) + '</p>' : '') +
+              '<div class="cs-place__links">' + (n ? '<a href="#" data-go="loc:' + e(it.city) + '">' + e(CS.t(ctx.lang, 'jobsCount', n)) + '</a>' : '') +
+              (it.address ? '<a href="https://www.openstreetmap.org/search?query=' + encodeURIComponent(it.address) + '" target="_blank" rel="noopener">' + e(CS.t(ctx.lang, 'seeOnMap')) + U.icon('external') + '</a>' : '') + '</div></div></article>';
+          }).join('') + '</div></div>';
+      },
+    },
+
+    logos: {
+      label: 'Logos et labels', icon: 'award', desc: 'Clients, labels, certifications, presse',
+      fields: [
+        { key: 'title', label: 'Titre', type: 'text' },
+        { key: 'intro', label: 'Introduction', type: 'textarea', rows: 2 },
+        { key: 'style', label: 'Affichage des logos', type: 'select', options: [{ value: 'mono', label: 'Monochrome (discret)' }, { value: 'color', label: 'Couleurs d’origine' }] },
+        { key: 'items', label: 'Logos', type: 'list', itemLabel: 'name', max: 16, add: { name: 'Nom', image: '' }, fields: [
+          { key: 'name', label: 'Nom', type: 'text', noTr: true, help: 'Affiché en texte tant qu’aucun logo n’est importé. Sert aussi de texte alternatif.' },
+          { key: 'image', label: 'Logo', type: 'image', optional: true }] },
+      ],
+      defaults: { title: 'Ils nous font confiance', intro: '', style: 'mono', items: [{ name: 'Client A', image: '' }, { name: 'Client B', image: '' }, { name: 'Client C', image: '' }] },
+      render(p) {
+        return '<div class="cs-wrap">' + head(p, 'cs-center') + '<ul class="cs-logos cs-logos--' + e(p.style || 'mono') + '">' +
+          (p.items || []).map((it) => '<li>' + (it.image && !U.isPlaceholder(it.image) ? '<img src="' + e(it.image) + '" alt="' + e(it.name) + '">' : '<span>' + e(it.name) + '</span>') + '</li>').join('') +
+          '</ul></div>';
+      },
+    },
+
     faq: {
       label: 'Questions fréquentes', icon: 'chat', desc: 'Questions et réponses dépliables',
       fields: [
@@ -254,7 +318,7 @@ window.CS = window.CS || {};
   };
 
   /* Ordre d'affichage dans la bibliothèque de blocs */
-  const ORDER = ['hero', 'text', 'textImage', 'stats', 'values', 'benefits', 'gallery', 'video', 'testimonials', 'process', 'jobs', 'faq', 'cta'];
+  const ORDER = ['hero', 'text', 'textImage', 'stats', 'values', 'benefits', 'teams', 'locations', 'gallery', 'video', 'testimonials', 'logos', 'process', 'jobs', 'faq', 'cta'];
 
   const BACKGROUNDS = [
     { value: 'default', label: 'Fond de page' },
